@@ -1,5 +1,6 @@
 import React from "react";
 import Card from "./Card";
+import { incrementTurn } from "./Count";
 
 const DECK = [
   { id: 1, pairId: "amazon", frontImage: "/images/amazon.jpg" },
@@ -14,108 +15,112 @@ const DECK = [
   { id: 10, pairId: "archive", frontImage: "/images/archive.jpg" },
   { id: 11, pairId: "netflix", frontImage: "/images/netflix.jpg" },
   { id: 12, pairId: "archive", frontImage: "/images/archive.jpg" },
-
-  
 ];
 
 function Board() {
-  // helper: returns a fresh shuffled deck with runtime flags
-  function getShuffledDeck() {
-    // copy deck and add runtime flags
-    const deckWithState = DECK.map(card => ({ ...card, isFlipped: false, isMatched: false }));
-    // Fisher-Yates shuffle
+  const getShuffledDeck = () => {
+    const deckWithState = DECK.map(card => ({
+      ...card,
+      isFlipped: false,
+      isMatched: false,
+    }));
+
     for (let i = deckWithState.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [deckWithState[i], deckWithState[j]] = [deckWithState[j], deckWithState[i]];
     }
+
     return deckWithState;
-  }
+  };
 
   const [cards, setCards] = React.useState(() => getShuffledDeck());
   const [firstSelection, setFirstSelection] = React.useState(null);
   const [lockBoard, setLockBoard] = React.useState(false);
+  const [turnCount, setTurnCount] = React.useState(0);
 
-  function resetSelections() {
+  const resetSelections = () => {
     setFirstSelection(null);
     setLockBoard(false);
-  }
+  };
 
-  function handleCardClick(id) {
+  const handleCardClick = (id) => {
     if (lockBoard) return;
 
-    setCards(prev =>
-      prev.map(c => (c.id === id && !c.isMatched && !c.isFlipped ? { ...c, isFlipped: true } : c))
-    );
-
     const clickedCard = cards.find(c => c.id === id);
+    if (!clickedCard || clickedCard.isFlipped || clickedCard.isMatched) return;
+
+    setCards(prev =>
+      prev.map(c => (c.id === id ? { ...c, isFlipped: true } : c))
+    );
 
     if (!firstSelection) {
       setFirstSelection(id);
       return;
     }
 
-    if (firstSelection === id) return;
+    incrementTurn(setTurnCount);
 
     const firstCard = cards.find(c => c.id === firstSelection);
 
-    if (!firstCard || !clickedCard) return;
-
     if (firstCard.pairId === clickedCard.pairId) {
-      // match
       setCards(prev =>
         prev.map(c =>
           c.id === id || c.id === firstSelection ? { ...c, isMatched: true } : c
         )
       );
       resetSelections();
-      return;
+    } else {
+      setLockBoard(true);
+      setTimeout(() => {
+        setCards(prev =>
+          prev.map(c =>
+            c.id === id || c.id === firstSelection ? { ...c, isFlipped: false } : c
+          )
+        );
+        resetSelections();
+      }, 800);
     }
+  };
 
-    // not a match: lock board and flip back after delay
-    setLockBoard(true);
-    setTimeout(() => {
-      setCards(prev =>
-        prev.map(c =>
-          c.id === id || c.id === firstSelection ? { ...c, isFlipped: false } : c
-        )
-      );
-      resetSelections();
-    }, 800); // match your CSS animation duration
-  }
-
-  // New Game handler: reshuffle and reset everything
-  function handleNewGame() {
+  const handleNewGame = () => {
     setCards(getShuffledDeck());
     setFirstSelection(null);
     setLockBoard(false);
-  }
+    setTurnCount(0);
+  };
 
   return (
-    <div className="min-h-screen p-10 bg-gray-100">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold">Memory Game</h2>
-        <div className="space-x-2">
-          <button
-            className="px-4 py-2 bg-blue-600 text-white rounded"
-            onClick={handleNewGame}
-          >
-            New Game
-          </button>
-        </div>
+    <div className="min-h-screen p-6 bg-linear-to-b from-purple-100 via-purple-200 to-purple-300 flex flex-col items-center">
+    
+      <div className="flex flex-col items-center mb-6">
+        <h1 className="text-4xl sm:text-5xl font-bold text-center mb-2 font-[Courier]">
+          Mind Match Game
+        </h1>
+        <button
+          className="px-8 py-2 bg-gray-500 font-bold text-black border-3 rounded-2xl text-3xl border-black hover:bg-blue-700 transition font-[Courier]"
+          onClick={handleNewGame}
+        >
+          New Game
+        </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 justify-center items-center">
+      <div className="grid grid-cols-4 gap-2 max-w-4xl w-full">
         {cards.map(card => (
-          <Card
-            key={card.id}
-            frontImage={card.frontImage}
-            backImage="/images/default.png"
-            isFlipped={card.isFlipped}
-            isMatched={card.isMatched}
-            onClick={() => handleCardClick(card.id)}
-          />
+          <div key={card.id} className="w-full">
+            <Card
+              frontImage={card.frontImage}
+              backImage="/images/default.png"
+              isFlipped={card.isFlipped}
+              isMatched={card.isMatched}
+              onClick={() => handleCardClick(card.id)}
+            />
+          </div>
         ))}
       </div>
+
+      <h2 className="text-center text-xl sm:text-4xl font-semibold mt-6 font-[Courier]">
+        Turns Taken: {turnCount}
+      </h2>
     </div>
   );
 }
